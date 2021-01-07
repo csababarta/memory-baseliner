@@ -78,6 +78,7 @@ additional comparisons to improve detection accuracy. Note: This will result in 
 * --imphash: will also compare the import hashes in case of process, DLL and driver analysis
 * --owner: will also compare the process owner in case of process and service analysis
 * --cmdline: will also compare the command line in case of process analysis
+* --state: will also compare service states
 
 ## Saving baseline results into JSON files
 This option will save the results of the analysis into a JSON file that can be
