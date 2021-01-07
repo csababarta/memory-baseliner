@@ -21,19 +21,20 @@ Analysis types
 ## Background
 It's common in many enterprise environments, that windows based computers are
 provisioned using so-called "golden images" or installation scripts. This
-practice enables administrators to easier and faster to deploy servers and
-clients and helps implementing / enforcing the configuration standard.
+practice enables administrators to deploy servers and clients easier and faster
+and helps implementing / enforcing the configuration standard.
 
 This practice also provides forensic investigators and incident responders with
 an advantage. Because of the way the computers are provisioned most of them show
 many similarities. Most of the standard services, drivers and processes are
 similar, therefore it's possible to identify outliers by "comparing" the
-computers to each other. This capability can speed up incident response and
-forensic analysis.
+computers (disk and memory) to each other. This capability can speed up incident
+response and forensic analysis.
 
-In order to be the most effective the images should be taken of the same version
-of Microsoft Windows. This enables the analyst to use further comparison options
-to enhance accuracy and thereby improve detection.
+In order for the script to be more effective the images should be taken of
+computers running the same version of Microsoft Windows. This enables the
+analyst to use further comparison options to enhance accuracy and thereby
+improve detection.
 
 ## Requirements
 This script was written in python3
