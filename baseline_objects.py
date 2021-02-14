@@ -5,8 +5,8 @@ import logging
 import pefile
 import uuid
 from urllib import request
-from volatility import framework, plugins
-from volatility.cli import PrintedProgress
+from volatility3 import framework, plugins
+from volatility3.cli import PrintedProgress
 
 class BaselineProcess(object):
     """BaselineProcess class
@@ -524,7 +524,6 @@ class BaselineProcess(object):
             pe_data.seek(0)
             return pe_data
         except Exception as e:
-            self.logger.warning()
             raise Exception('Process PE data could not be extracted! (%d)(%s)(%s)' % (self.pid, type(e).__name__, str(e)))
 
 class BaselineDll(object):
@@ -735,7 +734,7 @@ class BaselineDll(object):
                 self.logger.warning('DLL imphash could not be calculated! (%s)(%s)(%s)' % (hex(self.dll_base), type(f).__name__, str(f)))
                 self.dll_imphash = ''
         except Exception as e:
-            self.logger.warning('DLL PE object could not be created! (%s)(%s)(%s)' % (hex(self.dll_base), type(f).__name__, str(e)))
+            self.logger.warning('DLL PE object could not be created! (%s)(%s)(%s)' % (hex(self.dll_base), type(e).__name__, str(e)))
             self.dll_imphash = ''
 
     def to_dict(self) -> dict:
@@ -964,7 +963,7 @@ class BaselineProcessList(object):
 
         failures = framework.import_files(plugins, True)
         if len(failures) != 0:
-            logger.warning('Volatility init failures! %s' % (str(failures)))
+            self.logger.warning('Volatility init failures! %s' % (str(failures)))
 
         config_path = ''
         ctx = framework.contexts.Context()

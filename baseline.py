@@ -34,14 +34,14 @@ from baseline_objects import BaselineDll, BaselineProcess, BaselineProcessList, 
 
 import pefile
 
-from volatility import framework, plugins
-from volatility.cli import PrintedProgress
+from volatility3 import framework, plugins
+from volatility3.cli import PrintedProgress
 
 def output_to_csv(file_handle: object,
                   headers: list,
                   records: list):
     csv_output = csv.writer(sys.stdout,
-                            delimiter = "\t",
+                            delimiter = "|",
                             quotechar = '"',
                             quoting = csv.QUOTE_ALL)
     # write headers
@@ -76,9 +76,11 @@ def compare_processes(baseline: list,
                'DLL KNOWN',
                'BASELINE FOO',
                'IMAGE FOO']
+
     records = []
     for p in image_to_check.processes:
         # identify known processes
+
         baseline_process = None
         for bp in baseline.processes:
             if p.is_same_as(process = bp,
@@ -87,6 +89,7 @@ def compare_processes(baseline: list,
                             compare_cmdline = compare_cmdline):
                 baseline_process = bp
                 break
+
         if baseline_process == None:
             # unknown process
 
@@ -151,7 +154,7 @@ def compare_processes(baseline: list,
 
             # only continue if known processes should be included
             if not show_known:
-                break
+                continue
 
             # check DLLs
             for dll in p.dlls:
@@ -321,7 +324,6 @@ def compare_services(baseline: list,
 
 # create the logger object
 logger = logging.getLogger('')
-logger.setLevel(logging.ERROR)
 
 # create console handler and set level to info
 handler = logging.StreamHandler()
@@ -341,9 +343,8 @@ logger.addHandler(handler)
 parser = argparse.ArgumentParser()
 parser.add_argument('-b', '--baseline', help='The baseline image')
 parser.add_argument('-i', '--image', help='The image(s) to analyze')
-parser.add_argument('-proc', action='store_true', help='Process analysis')
+parser.add_argument('-proc', action='store_true', help='Process analysis & DLL analysis')
 parser.add_argument('-drv', action='store_true', help='Driver analysis')
-parser.add_argument('-dll', action='store_true', help='DLL analysis')
 parser.add_argument('-svc', action='store_true', help='Service analysis')
 parser.add_argument('--stack', action='store_true', help='Perform stacking on the image(s)')
 parser.add_argument('--imphash', action='store_true', help='Also compare import hashes')
