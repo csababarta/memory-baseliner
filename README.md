@@ -91,6 +91,7 @@ The script will output its results to the standard output in tab separated
 format. This can also be saved to a file (the "-o" option is doing that for you)
 
 The output will include the following columns
+```
 Process & DLL analysis:
 PID: process ID
 PPID (PARENT NAME): parent process ID and the name of the parent process
@@ -154,7 +155,7 @@ DRIVER NAME: driver name
 DRIVER IMPHASH: driver import hash value
 DRIVER IMAGE SIZE: driver image size in hex
 DRIVER PATH: path to the driver on disk
-
+```
 
 
 
