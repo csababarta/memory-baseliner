@@ -9,8 +9,7 @@ Microsoft Windows. It implements the following two use cases:
 images
 
 Analysis aspects
-* process
-* DLL
+* process & DLL
 * service
 * driver
 
@@ -38,7 +37,8 @@ improve detection.
 
 ## Requirements
 This script was written in python3
-This script uses volatility version 3 as a library
+This script uses volatility version 3 as a library and must be copied into the
+folder where vol.py resides.
 
 ## Installation / setup
 Copy the following files into the directory where vol.py (version 3) resides.
@@ -88,31 +88,105 @@ to compare multiple images to the same baseline in multiple runs.
 
 ## Output
 The script will output its results to the standard output in tab separated
-format. This can redirected to a file.
+format. This can also be saved to a file (the "-o" option is doing that for you)
+
+The output will include the following columns
+Process & DLL analysis:
+PID: process ID
+PPID (PARENT NAME): parent process ID and the name of the parent process
+PROCESS NAME: name of the process
+PROCESS IMPHASH: import hash value of the process
+COMMAND LINE: command line of the process
+DLL NAME: name of the loaded DLL
+DLL PATH: path to the loaded DLL
+DLL IMPHASH: import hash value of the loaded DLL
+PROCESS STATUS: KNOWN or UNKNOWN based if the process has been found in the baseline image
+DLL STATUS: KNOWN or UNKNOWN based on if the DLL has been found in the baseline image
+BASELINE FoO: Frequency of Occurrence in the baseline image
+IMAGE FoO: Frequency of Occurrence in the baseline image
+
+Service analysis:
+STATUS: KNOWN or UNKNOWN based on if the service has been found in the baseline image
+NAME: name of the service
+DISPLAY: display name of the service
+STATE: state of the service (e.g.: SERVICE_STOPPED)
+TYPE: type of the service (e.g.: SERVICE_WIN32_SHARE_PROCESS)
+START: start type of the service (e.g.: SERVICE_DEMAND_START)
+OWNER: owner of the process started by the service
+BINARY: the executable / command that is executed when the service starts
+
+Driver analysis:
+STATUS: KNOWN or UNKNOWN based on if the driver has been found in the baseline image
+NAME: name of the driver
+SIZE: size of the driver in hex
+IMPHASH: import hash value of the driver
+PATH: path to the driver on disk
+
+Process stacking:
+FoO: Frequency of Occurrence
+IMPHASH: process import hash value
+IMAGES: list of images the driver was found in
+PROCESS NAME: name of the process
+PROCESS CMD LINE: command line of the process
+
+DLL stacking:
+FoO: Frequency of Occurrence
+IMPHASH: DLL import hash value
+IMAGES: list of images the driver was found in
+DLL NAME: name of the DLL
+DLL PATH: path to the DLL on disk
+
+Service stacking:
+FoO: Frequency of Occurrence
+IMAGES: list of images the driver was found in
+SERVICE NAME: name of the service
+SERVICE DISPLAY: display name of the service
+SERVICE TYPE: type of the service
+SERVICE START: start type of the service
+SERVICE STATE: state of the service
+SERVICE PROCESS OWNER: owner of the process started by the service
+SERVICE BINARY: executable of command line that is executed upon service start
+
+Driver stacking:
+FoO: Frequency of Occurrence
+IMAGES: list of images the driver was found in
+DRIVER NAME: driver name
+DRIVER IMPHASH: driver import hash value
+DRIVER IMAGE SIZE: driver image size in hex
+DRIVER PATH: path to the driver on disk
+
+
+
 
 ## Usage
 ```
-usage: baseline.py [-h] [-b BASELINE] [-i IMAGE] [-proc] [-drv] [-dll] [-svc] [--stack] [--imphash] [--owner] [--cmdline] [--state] [--showknown] [--savebaseline] [--loadbaseline]
-                   [--jsonbaseline JSONBASELINE]
+usage: baseline.py [-h] [-b BASELINE] [-i IMAGE] [-d IMAGEDIR] [-o OUTPUT] [-proc] [-drv] [-svc] [-procstack] [-dllstack] [-drvstack] [-svcstack] [--imphash] [--owner] [--cmdline] [--state] [--showknown] [--savebaseline]
+                   [--loadbaseline] [--jsonbaseline JSONBASELINE]
 
 optional arguments:
   -h, --help            show this help message and exit
   -b BASELINE, --baseline BASELINE
                         The baseline image
   -i IMAGE, --image IMAGE
-                        The image(s) to analyze
-  -proc                 Process analysis
+                        The image to analyze
+  -d IMAGEDIR, --imagedir IMAGEDIR
+                        The directory with images to analyze. Used for stacking
+  -o OUTPUT, --output OUTPUT
+                        The output file where the results are to be saved
+  -proc                 Process analysis & DLL analysis
   -drv                  Driver analysis
-  -dll                  DLL analysis
   -svc                  Service analysis
-  --stack               Perform stacking on the image(s)
+  -procstack            Perform process stacking on the image(s)
+  -dllstack             Perform DLL stacking on the image(s)
+  -drvstack             Perform driver stacking on the image(s)
+  -svcstack             Perform service stacking on the image(s)
   --imphash             Also compare import hashes
   --owner               Also compare process owners
-  --cmdline             Also compare process commandlines
+  --cmdline             Also compare process command lines
   --state               Also compare service states
   --showknown           Include known items in the output (prcesses, dlls, driver, services)
-  --savebaseline        Save the baseline results to a JSON file
-  --loadbaseline        Load the baseline results from a JSON file
+  --savebaseline        Save the baseline results of the analysis to a JSON file
+  --loadbaseline        Load the baseline results of the analysis from a JSON file
   --jsonbaseline JSONBASELINE
                         The JSON file where the baseline results are located
 ```
@@ -141,9 +215,9 @@ python3 baseline.py -drv -b <baseline image> -i <image to analyze>
 ```
 DLL stacking comparing import hashes
 ```bash
-python3 baseline.py -dll --stack --imphash -i <directory containing the images>
+python3 baseline.py -dllstack --imphash -d <directory containing the images>
 ```
 Process stacking
 ```bash
-python3 baseline.py -proc --stack -i <directory containing the images>
+python3 baseline.py -procstack -d <directory containing the images>
 ```
