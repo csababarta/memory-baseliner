@@ -40,7 +40,7 @@ from volatility3.cli import PrintedProgress
 def output_to_csv(file_handle: object,
                   headers: list,
                   records: list):
-    csv_output = csv.writer(sys.stdout,
+    csv_output = csv.writer(file_handle,
                             delimiter = "|",
                             quotechar = '"',
                             quoting = csv.QUOTE_ALL)
@@ -55,7 +55,8 @@ def compare_processes(baseline: list,
                       compare_imphash: bool,
                       compare_owner: bool,
                       compare_cmdline: bool,
-                      show_known: bool):
+                      show_known: bool,
+                      output_handle: object):
 
     # collect DLL statistics
     baseline_dll_statistics = baseline.collect_dll_statistics(compare_imphash)
@@ -65,17 +66,15 @@ def compare_processes(baseline: list,
     headers = ['PID',
                'PPID (PARENT NAME)',
                'PROCESS NAME',
-               'PROC. IMPHASH',
+               'PROCESS IMPHASH',
                'COMMAND LINE',
                'DLL NAME',
                'DLL PATH',
                'DLL IMPHASH',
-               'PROC. UNK.',
-               'DLL UNKNOWN.',
-               'DLL ADDIT.',
-               'DLL KNOWN',
-               'BASELINE FOO',
-               'IMAGE FOO']
+               'PROCESS STATUS',
+               'DLL STATUS',
+               'BASELINE FoO',
+               'IMAGE FoO']
 
     records = []
     for p in image_to_check.processes:
@@ -121,10 +120,8 @@ def compare_processes(baseline: list,
                                         dll.dll_name,
                                         dll.dll_path,
                                         dll.dll_imphash,
-                                        'X',  # unknown process
-                                        '',   # unknown DLL
-                                        '',   # additional DLL
-                                        'X',  # known DLL
+                                        'UNKNOWN',  # process status
+                                        'KNOWN',   # DLL status
                                         str(d['frequency_of_occurence']),  # Baseline FOO
                                         str(image_foo)])  # Image FOO
                         break
@@ -143,10 +140,8 @@ def compare_processes(baseline: list,
                                     dll.dll_name,
                                     dll.dll_path,
                                     dll.dll_imphash,
-                                    'X',  # unknown process
-                                    'X',  # unknown DLL
-                                    '',   # additional DLL
-                                    '',   # known DLL
+                                    'UNKNOWN',  # process status
+                                    'UNKNOWN',  # DLL status
                                     str(0), # Baseline FOO
                                     str(image_foo)]) # Image FOO
         else:
@@ -180,11 +175,9 @@ def compare_processes(baseline: list,
                                     dll.dll_name,
                                     dll.dll_path,
                                     dll.dll_imphash,
-                                    '',   # unknown process
-                                    'X',  # unknown DLL
-                                    '',   # additional DLL
-                                    '',   # known DLL
-                                    str(0), # Baseline FO
+                                    'KNOWN',   # process status
+                                    'UNKNOWN',  # DLL status
+                                    str(0), # Baseline FOO
                                     str(image_foo)]) # Image FOO
                 else:
                     # known DLL
@@ -207,10 +200,8 @@ def compare_processes(baseline: list,
                                             dll.dll_name,
                                             dll.dll_path,
                                             dll.dll_imphash,
-                                            '',  # unknown process
-                                            '',  # unknown DLL
-                                            '',   # additional DLL
-                                            'X',  # known DLL
+                                            'KNOWN',  # process status
+                                            'KNOWN',  # DLL status
                                             str(baseline_dll_entry['frequency_of_occurence']), # Baseline FO
                                             str(image_foo)])  # Image FOO
                             break
@@ -228,21 +219,20 @@ def compare_processes(baseline: list,
                                         dll.dll_name,
                                         dll.dll_path,
                                         dll.dll_imphash,
-                                        '',  # unknown process
-                                        '',  # unknown DLL
-                                        'X', # additional DLL
-                                        '',  # known DLL
+                                        'KNOWN',  # process status
+                                        'ADDITIONAL',  # DLL status
                                         str(baseline_dll_entry['frequency_of_occurence']), # Baseline FO
                                         str(image_foo)])  # Image FOO
     print("PROCESSES")
-    output_to_csv(file_handle = sys.stdout,
+    output_to_csv(file_handle = output_handle,
                   headers = headers,
                   records = records)
 
 def compare_drivers(baseline: list,
                     image_to_check: list,
                     compare_imphash: bool,
-                    show_known: bool):
+                    show_known: bool,
+                    output_handle: object):
     unknown_drivers = []
     known_drivers = []
     for drv in image_to_check.drivers:
@@ -257,18 +247,26 @@ def compare_drivers(baseline: list,
         else:
             unknown_drivers.append(drv)
 
-    headers = ['NAME', 'UNKNOWN', 'SIZE', 'IMPHASH', 'PATH']
+    headers = ['STATUS', 'NAME', 'SIZE', 'IMPHASH', 'PATH']
     records = []
     for drv in unknown_drivers:
-        records.append([drv.driver_name, 'X', hex(drv.driver_image_size), drv.driver_imphash, drv.driver_path])
+        records.append(['UNKNOWN',
+                        drv.driver_name,
+                        hex(drv.driver_image_size),
+                        drv.driver_imphash,
+                        drv.driver_path])
 
     if show_known:
         for drv in known_drivers:
-            records.append([drv.driver_name, '', hex(drv.driver_image_size), drv.driver_imphash, drv.driver_path])
+            records.append(['KNOWN',
+                            drv.driver_name,
+                            hex(drv.driver_image_size),
+                            drv.driver_imphash,
+                            drv.driver_path])
 
     # output results
     print("DRIVERS")
-    output_to_csv(file_handle = sys.stdout,
+    output_to_csv(file_handle = output_handle,
                   headers = headers,
                   records = records)
 
@@ -276,7 +274,8 @@ def compare_services(baseline: list,
                      image_to_check: list,
                      compare_owner: bool,
                      compare_state: bool,
-                     show_known: bool):
+                     show_known: bool,
+                     output_handle: object):
     unknown_services = []
     known_services = []
 
@@ -293,32 +292,32 @@ def compare_services(baseline: list,
             known_services.append(svc)
 
     # Unknown services
-    headers = ['NAME', 'DISPLAY', 'STATE', 'TYPE', 'START', 'OWNER', 'BINARY', 'UNKNOWN']
+    headers = ['STATUS', 'NAME', 'DISPLAY', 'STATE', 'TYPE', 'START', 'OWNER', 'BINARY']
     records = []
     for svc in unknown_services:
-        records.append([svc.service_name,
+        records.append(['UNKNOWN',
+                        svc.service_name,
                         svc.service_displayname,
                         svc.service_state,
                         svc.service_type,
                         svc.service_start,
                         svc.service_process_owner,
-                        svc.service_process_binary,
-                        'X'])
+                        svc.service_process_binary])
 
     if show_known:
         for svc in known_services:
-            records.append([svc.service_name,
+            records.append(['KNOWN',
+                            svc.service_name,
                             svc.service_displayname,
                             svc.service_state,
                             svc.service_type,
                             svc.service_start,
                             svc.service_process_owner,
-                            svc.service_process_binary,
-                            ''])
+                            svc.service_process_binary])
 
     # output results
     print('SERVICES')
-    output_to_csv(file_handle = sys.stdout,
+    output_to_csv(file_handle = output_handle,
                   headers = headers,
                   records = records)
 
@@ -342,11 +341,16 @@ logger.addHandler(handler)
 # parse arguments
 parser = argparse.ArgumentParser()
 parser.add_argument('-b', '--baseline', help='The baseline image')
-parser.add_argument('-i', '--image', help='The image(s) to analyze')
+parser.add_argument('-i', '--image', help='The image to analyze')
+parser.add_argument('-d', '--imagedir', help='The directory with images to analyze. Used for stacking')
+parser.add_argument('-o', '--output', help='The output file where the results are to be saved')
 parser.add_argument('-proc', action='store_true', help='Process analysis & DLL analysis')
 parser.add_argument('-drv', action='store_true', help='Driver analysis')
 parser.add_argument('-svc', action='store_true', help='Service analysis')
-parser.add_argument('--stack', action='store_true', help='Perform stacking on the image(s)')
+parser.add_argument('-procstack', action='store_true', help='Perform process stacking on the image(s)')
+parser.add_argument('-dllstack', action='store_true', help='Perform DLL stacking on the image(s)')
+parser.add_argument('-drvstack', action='store_true', help='Perform driver stacking on the image(s)')
+parser.add_argument('-svcstack', action='store_true', help='Perform service stacking on the image(s)')
 parser.add_argument('--imphash', action='store_true', help='Also compare import hashes')
 parser.add_argument('--owner', action='store_true', help='Also compare process owners')
 parser.add_argument('--cmdline', action='store_true', help='Also compare process commandlines')
@@ -359,23 +363,34 @@ args = parser.parse_args()
 
 # initial checks
 
+# if we don't have any arguments display the help
+if len(sys.argv) == 1:
+    parser.print_help(sys.stderr)
+    sys.exit(-1)
+
 # we need an image file if we are not doing stacking
-if not args.stack:
+if args.image:
     if not os.path.exists(args.image) and not os.path.isfile(args.image):
         logger.error('Image is not a valid file')
         sys.exit(-1)
 
+# we need a baseline image if we are not doing stacking
+if args.baseline:
+    if not os.path.exists(args.baseline) and not os.path.isfile(args.baseline):
+        logger.error('Baseline image is not a valid file')
+        sys.exit(-1)
+
 # we need a baseline image files if we are not doing stacking and not loading
 #  the baseline data from a JSON file
-if not args.loadbaseline and not args.stack:
+if not args.loadbaseline and not args.procstack and not args.dllstack and not args.drvstack and not args.svcstack:
     if not args.baseline or not os.path.exists(args.baseline) or not os.path.isfile(args.baseline):
         logger.error('Baseline image is not a valid file')
         sys.exit(-1)
 
 # we need a directory where the images are stored if we are doing stacking
-if args.stack:
-    if os.path.exists(args.image) and not os.path.isdir(args.image):
-        logger.error('Image paramtere is not a directory')
+if args.procstack or args.dllstack or args.drvstack or args.svcstack:
+    if os.path.exists(args.imagedir) and not os.path.isdir(args.imagedir):
+        logger.error('Image parameter is not a directory')
         sys.exit(-1)
 
 # if we are loading the baseline from a JSON file that file must exist
@@ -390,8 +405,23 @@ if args.savebaseline:
         logger.error('Baseline JSON already exists! Cannot be overwritten!')
         sys.exit(-1)
 
+output_handle = sys.stdout
+if args.output:
+    f = None
+    if os.path.exists(args.output):
+        logger.error('The output file already exists! Cannot be overwritten!')
+        sys.exit(-1)
+    else:
+        try:
+            f = open(args.output,'w')
+        except Exception as e:
+            logger.error('Error while opening the output file specified!')
+            sys.exit(-1)
+    if f != None:
+        output_handle = f
+
 # Perform process comparison
-if args.proc and not args.stack:
+if args.proc:
     logger.info('Processing baseline image')
     baseline_processes = BaselineProcessList()
     if args.loadbaseline:
@@ -412,11 +442,14 @@ if args.proc and not args.stack:
                       compare_imphash = args.imphash,
                       compare_owner = args.owner,
                       compare_cmdline = args.cmdline,
-                      show_known = args.showknown)
+                      show_known = args.showknown,
+                      output_handle = output_handle)
+    if output_handle != sys.stdout:
+        output_handle.close()
     sys.exit(0)
 
 # Perform driver comparison
-if args.drv and not args.stack:
+if args.drv:
     logger.info('Processing baseline image')
     baseline_drivers = BaselineDriverList()
     if args.loadbaseline:
@@ -436,11 +469,14 @@ if args.drv and not args.stack:
     compare_drivers(baseline = baseline_drivers,
                     image_to_check = image_to_check_drivers,
                     compare_imphash = args.imphash,
-                    show_known = args.showknown)
+                    show_known = args.showknown,
+                    output_handle = output_handle)
+    if output_handle != sys.stdout:
+        output_handle.close()
     sys.exit(0)
 
 # Perform service comparison
-if args.svc and not args.stack:
+if args.svc:
     logger.info('Processing baseline image')
     baseline_services = BaselineServiceList()
     if args.loadbaseline:
@@ -461,15 +497,18 @@ if args.svc and not args.stack:
                      image_to_check = image_to_check_services,
                      compare_owner = args.owner,
                      compare_state = args.state,
-                     show_known = args.showknown)
+                     show_known = args.showknown,
+                     output_handle = output_handle)
+    if output_handle != sys.stdout:
+        output_handle.close()
     sys.exit(0)
 
 # Perform DLL stacking
-if args.dll and args.stack:
+if args.dllstack:
     global_dll_statistics = []
     # loop through files
-    for f in os.listdir(args.image):
-        i = os.path.join(args.image, f)
+    for f in os.listdir(args.imagedir):
+        i = os.path.join(args.imagedir, f)
         if os.path.isfile(i):
             try:
                 print('Processing: (%s)' % (i))
@@ -506,27 +545,29 @@ if args.dll and args.stack:
 
     # output results
     print("DLL FREQUENCY OF OCCURENCE")
-    headers = ['FOO', 'IMPHASH', 'IMAGES', 'DLL NAME', 'DLL PATH']
+    headers = ['FoO', 'IMPHASH', 'IMAGES', 'DLL NAME', 'DLL PATH']
+    records = []
     for entry in global_dll_statistics:
         records.append([str(entry['frequency_of_occurence']),
                         entry['dll'].dll_imphash,
-                        "|".join(entry['images']),
+                        ';'.join(entry['images']),
                         entry['dll'].dll_name,
                         entry['dll'].dll_path])
 
-    output_to_csv(file_handle = sys.stdout,
+    output_to_csv(file_handle = output_handle,
                   headers = headers,
                   records = records)
-
+    if output_handle != sys.stdout:
+        output_handle.close()
     sys.exit(0)
 
 # Perform process stacking
-if args.proc and args.stack:
+if args.procstack:
     global_process_statistics = []
 
     # loop through files
-    for f in os.listdir(args.image):
-        i = os.path.join(args.image, f)
+    for f in os.listdir(args.imagedir):
+        i = os.path.join(args.imagedir, f)
         if os.path.isfile(i):
             try:
                 logger.info('Processing: (%s)' % (i))
@@ -567,27 +608,29 @@ if args.proc and args.stack:
 
     # output results
     print("PROCESS FREQUENCY OF OCCURENCE")
-    headers = ['FOO', 'IMPHASH', 'IMAGES', 'PROCESS NAME', 'PROCESS CMD LINE']
+    headers = ['FoO', 'IMPHASH', 'IMAGES', 'PROCESS NAME', 'PROCESS CMD LINE']
     records = []
     for entry in global_process_statistics:
         records.append([str(entry['frequency_of_occurence']),
                         entry['process'].process_imphash,
-                        entry['images'],
+                        ';'.join(entry['images']),
                         entry['process'].process_name,
                         entry['process'].process_cmd_line])
 
-    output_to_csv(file_handle = sys.stdout,
+    output_to_csv(file_handle = output_handle,
                   headers = headers,
                   records = records)
+    if output_handle != sys.stdout:
+        output_handle.close()
     sys.exit(0)
 
 # Perform service stacking
-if args.svc and args.stack:
+if args.svcstack:
     global_service_statistics = []
 
     # loop through files
-    for f in os.listdir(args.image):
-        i = os.path.join(args.image, f)
+    for f in os.listdir(args.imagedir):
+        i = os.path.join(args.imagedir, f)
         if os.path.isfile(i):
             try:
                 logger.info('Processing: (%s)' % (i))
@@ -626,11 +669,11 @@ if args.svc and args.stack:
 
     # output results
     print("SERVICE FREQUENCY OF OCCURENCE")
-    headers = ['FOO', 'IMAGES', 'SERVICE NAME', 'SERVICE DISPLAY', 'SERVICE TYPE', 'SERVICE START', 'SERVICE STATE', 'SERVICE PROCESS OWNER', 'SERVICE BINARY']
+    headers = ['FoO', 'IMAGES', 'SERVICE NAME', 'SERVICE DISPLAY', 'SERVICE TYPE', 'SERVICE START', 'SERVICE STATE', 'SERVICE PROCESS OWNER', 'SERVICE BINARY']
     records = []
     for entry in global_service_statistics:
         records.append([str(entry['frequency_of_occurence']),
-                        entry['images'],
+                        ';'.join(entry['images']),
                         entry['service'].service_name,
                         entry['service'].service_displayname,
                         entry['service'].service_type,
@@ -639,18 +682,20 @@ if args.svc and args.stack:
                         entry['service'].service_process_owner,
                         entry['service'].service_process_binary,])
 
-    output_to_csv(file_handle = sys.stdout,
+    output_to_csv(file_handle = output_handle,
                   headers = headers,
                   records = records)
+    if output_handle != sys.stdout:
+        output_handle.close()
     sys.exit(0)
 
 # Perform driver stacking
-if args.drv and args.stack:
+if args.drvstack:
     global_driver_statistics = []
 
     # loop through files
-    for f in os.listdir(args.image):
-        i = os.path.join(args.image, f)
+    for f in os.listdir(args.imagedir):
+        i = os.path.join(args.imagedir, f)
         if os.path.isfile(i):
             try:
                 logger.info('Processing: (%s)' % (i))
@@ -687,17 +732,19 @@ if args.drv and args.stack:
 
     # output results
     print("DRIVER FREQUENCY OF OCCURENCE")
-    headers = ['FOO', 'IMAGES', 'DRIVER NAME', 'DRIVER IMPHASH', 'DRIVER IMAGE SIZE', 'DRIVER PATH']
+    headers = ['FoO', 'IMAGES', 'DRIVER NAME', 'DRIVER IMPHASH', 'DRIVER IMAGE SIZE', 'DRIVER PATH']
     records = []
     for entry in global_driver_statistics:
         records.append([str(entry['frequency_of_occurence']),
-                        entry['images'],
+                        ';'.join(entry['images']),
                         entry['driver'].driver_name,
                         entry['driver'].driver_imphash,
                         hex(entry['driver'].driver_image_size),
                         entry['driver'].driver_path])
 
-    output_to_csv(file_handle = sys.stdout,
+    output_to_csv(file_handle = output_handle,
                   headers = headers,
                   records = records)
+    if output_handle != sys.stdout:
+        output_handle.close()
     sys.exit(0)
