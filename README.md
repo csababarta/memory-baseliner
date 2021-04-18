@@ -5,48 +5,47 @@
 This script focuses on analysis of memory images taken of computers running
 Microsoft Windows. It implements the following two use cases:
 * "compare" two memory images (e.g. golden image to suspicious computer or memory snapshots during dynamic malware analysis)
-* perform frequency of occurrence / data stacking analysis on multiple memory
-images
+* perform frequency of occurrence / data stacking analysis on multiple memory images
 
-Analysis aspects
-* process & DLL
+## Background
+It's common in many enterprise environments, that windows based computers are provisioned using so-called "golden images" or installation scripts. This practice enables administrators to deploy servers and clients easier and faster and helps implementing / enforcing the configuration standard.
+
+This practice also provides forensic investigators and incident responders with an advantage. Because of the way the computers are provisioned most of them show many similarities. Most of the standard services, drivers and processes are similar, therefore it's possible to identify outliers by "comparing" the computers (disk and memory) to each other. This capability can speed up incident response and forensic analysis.
+
+In order for the script to be more effective the images should be taken of computers running the same version of Microsoft Windows. This enables the analyst to use further comparison options to enhance accuracy and thereby improve detection.
+
+## Analysis modes & types
+The script supports the following analysis modes and analysis types
+
+
+| Analysis mode                           | Analysis type                          | Argument name |
+| --------------------------------------- | -------------------------------------- | ------------- |
+| Comparison                              | Process analysis (includes DLL analysis) | -proc         |
+|                                         | Service analysis                       | -svc          |
+|                                         | Driver analysis                        | -drv          |
+| Data stacking / Frequency of Occurrence | Process stacking                       | -procstack    |
+|                                         | DLL stacking                           | -dllstack     |
+|                                         | Dervice stacking                       | -svcstack     |
+|                                         | Driver stacking                        | -drvstack     |
+
+## Objects considered during analyis
+The following objects are considered in the different analysis modes
+* process
+* DLL
 * service
 * driver
 
-Analysis types
-* comparison (default)
-* data stacking / frequency of occurrence
-
-## Background
-It's common in many enterprise environments, that windows based computers are
-provisioned using so-called "golden images" or installation scripts. This
-practice enables administrators to deploy servers and clients easier and faster
-and helps implementing / enforcing the configuration standard.
-
-This practice also provides forensic investigators and incident responders with
-an advantage. Because of the way the computers are provisioned most of them show
-many similarities. Most of the standard services, drivers and processes are
-similar, therefore it's possible to identify outliers by "comparing" the
-computers (disk and memory) to each other. This capability can speed up incident
-response and forensic analysis.
-
-In order for the script to be more effective the images should be taken of
-computers running the same version of Microsoft Windows. This enables the
-analyst to use further comparison options to enhance accuracy and thereby
-improve detection.
-
 ## Requirements
 This script was written in python3
-This script uses volatility version 3 as a library and must be copied into the
-folder where vol.py resides.
+This script uses volatility version 3 as a library and must be copied into the folder where vol.py resides.
 
 ## Installation / setup
-Copy the following files into the directory where vol.py (version 3) resides.
+Copy the following files into the directory where vol.py (version 3) resides. The directory is usually called "volatility3".
 * baseline.py
 * baseline_objects.py
 
 ## Comparison options
-By default the the script will only compare the following properties:
+By default the the script will only compare the following properties in the different analysis types
 
 ### Process analysis (also performs DLL analysis)
 * process name (EPROCESS)
@@ -73,89 +72,108 @@ By default the the script will only compare the following properties:
 * driver path
 * driver image size
 
-By enabling the following command line switches it is possible to perform
-additional comparisons to improve detection accuracy. Note: This will result in more unknown processes/DLLs/drivers/services in case the windows versions in the images are different.
+### Additional comparison options
+By enabling the following command line switches it is possible to perform additional comparisons to improve detection accuracy. 
 
-* --imphash: will also compare the import hashes in case of process, DLL and driver analysis
-* --owner: will also compare the process owner in case of process and service analysis
-* --cmdline: will also compare the command line in case of process analysis
-* --state: will also compare service states
+Note: This will result in more unknown processes/DLLs/drivers/services in case the windows versions in the images are different.
+
+Note: These options do not greatly influence the speed of the analysis process.
+
+| Comparison option | Description                                                                |
+| ----------------- | -------------------------------------------------------------------------- |
+| --imphash         | Also compare the import hashes in case of process, DLL and driver analysis |
+| --owner           | Also compare the process owner in case of process and service analysis     |
+| --cmdline         | Also compare the command line in case of process analysis                  |
+| --state           | Also compare service states                                                |
 
 ## Saving baseline results into JSON files
-This option will save the results of the analysis into a JSON file that can be
-loaded later to speed up the analysis process. This is useful if you would like
-to compare multiple images to the same baseline in multiple runs.
+This option will save the results of the analysis into a JSON file that can be loaded later to speed up the analysis process. This is useful if you would like to compare multiple images to the same baseline in multiple runs.
+
+Note: The otion will only save the baseline for the actual analysis type. That means you have to create a baseline JSON for each analysis type (process, service, driver).
 
 ## Output
-The script will output its results to the standard output in tab separated
-format. This can also be saved to a file (the "-o" option is doing that for you)
+The script will output its results to the standard output in tab separated format. This can also be saved to a file (the "-o" option is doing that for you)
 
 The output will include the following columns
-```
-Process & DLL analysis:
-PID: process ID
-PPID (PARENT NAME): parent process ID and the name of the parent process
-PROCESS NAME: name of the process
-PROCESS IMPHASH: import hash value of the process
-COMMAND LINE: command line of the process
-DLL NAME: name of the loaded DLL
-DLL PATH: path to the loaded DLL
-DLL IMPHASH: import hash value of the loaded DLL
-PROCESS STATUS: KNOWN or UNKNOWN based if the process has been found in the baseline image
-DLL STATUS: KNOWN or UNKNOWN based on if the DLL has been found in the baseline image
-BASELINE FoO: Frequency of Occurrence in the baseline image
-IMAGE FoO: Frequency of Occurrence in the baseline image
 
-Service analysis:
-STATUS: KNOWN or UNKNOWN based on if the service has been found in the baseline image
-NAME: name of the service
-DISPLAY: display name of the service
-STATE: state of the service (e.g.: SERVICE_STOPPED)
-TYPE: type of the service (e.g.: SERVICE_WIN32_SHARE_PROCESS)
-START: start type of the service (e.g.: SERVICE_DEMAND_START)
-OWNER: owner of the process started by the service
-BINARY: the executable / command that is executed when the service starts
+### Process & DLL analysis
+| Column name        | Description                                                                |
+| ------------------ | -------------------------------------------------------------------------- |
+| PID                | Process ID                                                                 |
+| PPID (PARENT NAME) | Parent process ID and the name of the parent process                       |
+| PROCESS NAME       | Name of the process                                                        |
+| PROCESS IMPHASH    | Import hash value of the process                                           |
+| COMMAND LINE       | Command line of the process                                                |
+| DLL NAME           | Name of the loaded DLL                                                     |
+| DLL PATH           | Path to the loaded DLL                                                     |
+| DLL IMPHASH        | Import hash value of the loaded DLL                                        |
+| PROCESS STATUS     | KNOWN or UNKNOWN based if the process has been found in the baseline image |
+| DLL STATUS         | KNOWN or UNKNOWN based on if the DLL has been found in the baseline image  |
+| BASELINE FoO       | Frequency of Occurrence in the baseline image                              |
+| IMAGE FoO          | Frequency of Occurrence in the baseline image                              |
 
-Driver analysis:
-STATUS: KNOWN or UNKNOWN based on if the driver has been found in the baseline image
-NAME: name of the driver
-SIZE: size of the driver in hex
-IMPHASH: import hash value of the driver
-PATH: path to the driver on disk
+### Service analysis
+| Column name | Description                                                                   |
+| ----------- | ----------------------------------------------------------------------------- |
+| STATUS      | KNOWN or UNKNOWN based on if the service has been found in the baseline image |
+| NAME        | Name of the service                                                           |
+| DISPLAY     | Display name of the service                                                   |
+| STATE       | State of the service (e.g.: SERVICE_STOPPED)                                  |
+| TYPE        | Type of the service (e.g.: SERVICE_WIN32_SHARE_PROCESS)                       |
+| START       | Start type of the service (e.g.: SERVICE_DEMAND_START)                        |
+| OWNER       | Owner of the process started by the service                                   |
+| BINARY      | The executable / command that is executed when the service starts             |
 
-Process stacking:
-FoO: Frequency of Occurrence
-IMPHASH: process import hash value
-IMAGES: list of images the driver was found in
-PROCESS NAME: name of the process
-PROCESS CMD LINE: command line of the process
+### Driver analysis
+| Column name | Description                                                                  |
+| ----------- | ---------------------------------------------------------------------------- |
+| STATUS      | KNOWN or UNKNOWN based on if the driver has been found in the baseline image |
+| NAME        | name of the driver                                                           |
+| SIZE        | size of the driver in hex                                                    |
+| IMPHASH     | import hash value of the driver                                              |
+| PATH        | path to the driver on disk                                                   |
 
-DLL stacking:
-FoO: Frequency of Occurrence
-IMPHASH: DLL import hash value
-IMAGES: list of images the driver was found in
-DLL NAME: name of the DLL
-DLL PATH: path to the DLL on disk
+### Process stacking
+| Column name      | Description                            |
+| ---------------- | -------------------------------------- |
+| FoO              | Frequency of Occurrence                |
+| IMPHASH          | process import hash value              |
+| IMAGES           | list of images the driver was found in |
+| PROCESS NAME     | name of the process                    |
+| PROCESS CMD LINE | command line of the process            |
 
-Service stacking:
-FoO: Frequency of Occurrence
-IMAGES: list of images the driver was found in
-SERVICE NAME: name of the service
-SERVICE DISPLAY: display name of the service
-SERVICE TYPE: type of the service
-SERVICE START: start type of the service
-SERVICE STATE: state of the service
-SERVICE PROCESS OWNER: owner of the process started by the service
-SERVICE BINARY: executable of command line that is executed upon service start
+### DLL stacking
+| Column name | Description                            |
+| ----------- | -------------------------------------- |
+| FoO         | Frequency of Occurrence                |
+| IMPHASH     | DLL import hash value                  |
+| IMAGES      | list of images the driver was found in |
+| DLL NAME    | name of the DLL                        |
+| DLL PATH    | path to the DLL on disk                |
 
-Driver stacking:
-FoO: Frequency of Occurrence
-IMAGES: list of images the driver was found in
-DRIVER NAME: driver name
-DRIVER IMPHASH: driver import hash value
-DRIVER IMAGE SIZE: driver image size in hex
-DRIVER PATH: path to the driver on disk
-```
+### Service stacking
+| Column name           | Description                                                    |
+| --------------------- | -------------------------------------------------------------- |
+| FoO                   | Frequency of Occurrence                                        |
+| IMAGES                | list of images the driver was found in                         |
+| SERVICE NAME          | name of the service                                            |
+| SERVICE DISPLAY       | display name of the service                                    |
+| SERVICE TYPE          | type of the service                                            |
+| SERVICE START         | start type of the service                                      |
+| SERVICE STATE         | state of the service                                           |
+| SERVICE PROCESS OWNER | owner of the process started by the service                    |
+| SERVICE BINARY        | executable of command line that is executed upon service start |
+
+### Driver stacking
+| Column name       | Description                            |
+| ----------------- | -------------------------------------- |
+| FoO               | Frequency of Occurrence                |
+| IMAGES            | list of images the driver was found in |
+| DRIVER NAME       | driver name                            |
+| DRIVER IMPHASH    | driver import hash value               |
+| DRIVER IMAGE SIZE | driver image size in hex               |
+| DRIVER PATH       | path to the driver on disk             |
+
 
 
 
