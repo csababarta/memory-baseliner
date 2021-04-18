@@ -25,8 +25,7 @@ import json
 import logging
 import os
 import sys
-#import tabulate
-#import textwrap
+
 from urllib import request
 import uuid
 
