@@ -426,7 +426,7 @@ class BaselineProcess(object):
 
         try:
             proc_layer_name = process.add_process_layer()
-            kernel_table_name = context.config['PsList.nt_symbols']
+            kernel_table_name = context.config['PsList.kernel.symbol_table_name']
 
             peb = context.object(kernel_table_name + framework.constants.BANG + "_PEB",
                                  layer_name = proc_layer_name,
@@ -502,7 +502,7 @@ class BaselineProcess(object):
         self.logger.debug('DUMP_PE called')
 
         try:
-            kernel_table_name = context.config['PsList.nt_symbols']
+            kernel_table_name = context.config['PsList.kernel.symbol_table_name']
             pe_table_name = framework.symbols.intermed.IntermediateSymbolTable.create(context = context,
                                                                                       config_path = '',
                                                                                       sub_path = "windows",
@@ -986,8 +986,8 @@ class BaselineProcessList(object):
                                                          progress_callback = PrintedProgress(),
                                                          open_method = None)
         processes = constructed.list_processes(context=ctx,
-                                               layer_name = ctx.config['PsList.primary'],
-                                               symbol_table = ctx.config['PsList.nt_symbols'])
+                                               layer_name = ctx.config['PsList.kernel.layer_name'],
+                                               symbol_table = ctx.config['PsList.kernel.symbol_table_name'])
         try:
             for p in processes:
                 try:
@@ -1404,8 +1404,8 @@ class BaselineDriverList(object):
                                                          progress_callback = PrintedProgress(),
                                                          open_method = None)
         modules = constructed.list_modules(context = ctx,
-                                           layer_name = ctx.config['Modules.primary'],
-                                           symbol_table = ctx.config['Modules.nt_symbols'])
+                                           layer_name = ctx.config['Modules.kernel.layer_name'],
+                                           symbol_table = ctx.config['Modules.kernel.symbol_table_name'])
         for module in modules:
             #print(str(module.vol.offset) + "\t" + module.BaseDllName.get_string() + "\t" + module.FullDllName.get_string() + "\t" + str(module.SizeOfImage))
             try:
@@ -1971,13 +1971,13 @@ class BaselineServiceList(object):
         self.logger.debug('Unsatisfied: %s' % (unsatisfied))
 
         service_table_name = self.create_service_table(context = ctx,
-                                                       symbol_table = ctx.config["SvcScan.nt_symbols"],
+                                                       symbol_table = ctx.config["SvcScan.kernel.symbol_table_name"],
                                                        config_path = config_path)
         relative_tag_offset = ctx.symbol_space.get_type(service_table_name + framework.constants.BANG +
                                                         "_SERVICE_RECORD").relative_child_offset("Tag")
         filter_func = plugins.windows.pslist.PsList.create_name_filter(["services.exe"])
         is_vista_or_later = framework.symbols.windows.versions.is_vista_or_later(context = ctx,
-                                                                                 symbol_table = ctx.config["SvcScan.nt_symbols"])
+                                                                                 symbol_table = ctx.config["SvcScan.kernel.symbol_table_name"])
         if is_vista_or_later:
             service_tag = b"serH"
         else:
@@ -1986,8 +1986,8 @@ class BaselineServiceList(object):
         try:
             seen = []
             for task in plugins.windows.pslist.PsList.list_processes(context = ctx,
-                                                                     layer_name = ctx.config['SvcScan.primary'],
-                                                                     symbol_table = ctx.config['SvcScan.nt_symbols'],
+                                                                     layer_name = ctx.config['SvcScan.kernel.layer_name'],
+                                                                     symbol_table = ctx.config['SvcScan.kernel.symbol_table_name'],
                                                                      filter_func = filter_func):
                 proc_id = "Unknown"
                 try:
