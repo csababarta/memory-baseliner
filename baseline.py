@@ -222,7 +222,6 @@ def compare_processes(baseline: list,
                                         'ADDITIONAL',  # DLL status
                                         str(baseline_dll_entry['frequency_of_occurence']), # Baseline FO
                                         str(image_foo)])  # Image FOO
-    print("PROCESSES")
     output_to_csv(file_handle = output_handle,
                   headers = headers,
                   records = records)
@@ -264,7 +263,6 @@ def compare_drivers(baseline: list,
                             drv.driver_path])
 
     # output results
-    print("DRIVERS")
     output_to_csv(file_handle = output_handle,
                   headers = headers,
                   records = records)
@@ -315,7 +313,6 @@ def compare_services(baseline: list,
                             svc.service_process_binary])
 
     # output results
-    print('SERVICES')
     output_to_csv(file_handle = output_handle,
                   headers = headers,
                   records = records)
@@ -424,7 +421,11 @@ if args.proc:
     logger.info('Processing baseline image')
     baseline_processes = BaselineProcessList()
     if args.loadbaseline:
-        baseline_processes.from_json(args.jsonbaseline)
+        try:
+            baseline_processes.from_json(args.jsonbaseline)
+        except KeyError:
+            logger.error('Required data not foung in JSON baseline! (Wrong JSON baseline provided?)')
+            sys.exit(-1)
     else:
         baseline_processes.from_image(image = args.baseline)
     if args.savebaseline:
@@ -452,7 +453,11 @@ if args.drv:
     logger.info('Processing baseline image')
     baseline_drivers = BaselineDriverList()
     if args.loadbaseline:
-        baseline_drivers.from_json(args.jsonbaseline)
+        try:
+            baseline_drivers.from_json(args.jsonbaseline)
+        except KeyError:
+            logger.error('Required data not foung in JSON baseline! (Wrong JSON baseline provided?)')
+            sys.exit(-1)
     else:
         baseline_drivers.from_image(image = args.baseline)
 
@@ -479,7 +484,11 @@ if args.svc:
     logger.info('Processing baseline image')
     baseline_services = BaselineServiceList()
     if args.loadbaseline:
-        baseline_services.from_json(args.jsonbaseline)
+        try:
+            baseline_services.from_json(args.jsonbaseline)
+        except KeyError:
+            logger.error('Required data not foung in JSON baseline! (Wrong JSON baseline provided?)')
+            sys.exit(-1)
     else:
         baseline_services.from_image(image = args.baseline)
 
@@ -543,7 +552,6 @@ if args.dllstack:
                 pass
 
     # output results
-    print("DLL FREQUENCY OF OCCURENCE")
     headers = ['FoO', 'IMPHASH', 'IMAGES', 'DLL NAME', 'DLL PATH']
     records = []
     for entry in global_dll_statistics:
@@ -606,7 +614,6 @@ if args.procstack:
                 pass
 
     # output results
-    print("PROCESS FREQUENCY OF OCCURENCE")
     headers = ['FoO', 'IMPHASH', 'IMAGES', 'PROCESS NAME', 'PROCESS CMD LINE']
     records = []
     for entry in global_process_statistics:
@@ -667,7 +674,6 @@ if args.svcstack:
                 pass
 
     # output results
-    print("SERVICE FREQUENCY OF OCCURENCE")
     headers = ['FoO', 'IMAGES', 'SERVICE NAME', 'SERVICE DISPLAY', 'SERVICE TYPE', 'SERVICE START', 'SERVICE STATE', 'SERVICE PROCESS OWNER', 'SERVICE BINARY']
     records = []
     for entry in global_service_statistics:
@@ -730,7 +736,6 @@ if args.drvstack:
                 pass
 
     # output results
-    print("DRIVER FREQUENCY OF OCCURENCE")
     headers = ['FoO', 'IMAGES', 'DRIVER NAME', 'DRIVER IMPHASH', 'DRIVER IMAGE SIZE', 'DRIVER PATH']
     records = []
     for entry in global_driver_statistics:

@@ -1047,9 +1047,13 @@ class BaselineProcessList(object):
         # Initial load of processes
         self.processes = []
         for entry in list:
-            process = BaselineProcess()
-            process.from_dict(entry)
-            self.processes.append(process)
+            try:
+                process = BaselineProcess()
+                process.from_dict(entry)
+                self.processes.append(process)
+            except Exception as e:
+                self.logger.error('Could not create process object from JSON! (%s)' % (str(e)))
+                raise e
 
         # Fixing parent-child relationships based on GUIDs
         for p in self.processes:
@@ -1454,9 +1458,13 @@ class BaselineDriverList(object):
         # Initial load of drivers
         self.drivers = []
         for entry in list:
-            driver = BaselineDriver()
-            driver.from_dict(entry)
-            self.drivers.append(driver)
+            try:
+                driver = BaselineDriver()
+                driver.from_dict(entry)
+                self.drivers.append(driver)
+            except Exception as e:
+                self.logger.error('Could not create driver object from JSON! (%s)' % (str(e)))
+                raise e
 
     def collect_driver_statistics(self,
                                    compare_imphash: bool) -> list:
@@ -1909,7 +1917,7 @@ class BaselineServiceList(object):
         """from_json
 
         This function is responsible for loading the content of a
-          BaselineProcessList object from a JSON file.
+          BaselineServiceList object from a JSON file.
 
         Input
           jsonfile: str /path the JSON file/
@@ -1931,7 +1939,7 @@ class BaselineServiceList(object):
                 self.services.append(service)
             except Exception as e:
                 self.logger.error('Could not create service object from JSON! (%s)' % (str(e)))
-                raise Exception('Could not create service object from JSON! (%s)' % (str(e)))
+                raise e
 
     def from_image(self,
                    image: str):
