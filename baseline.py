@@ -319,10 +319,11 @@ def compare_services(baseline: list,
 
 # create the logger object
 logger = logging.getLogger('')
+logger.setLevel(logging.INFO)
 
 # create console handler and set level to info
 handler = logging.StreamHandler()
-handler.setLevel(logging.ERROR)
+handler.setLevel(logging.DEBUG)
 formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 handler.setFormatter(formatter)
 logger.addHandler(handler)
@@ -427,7 +428,8 @@ if args.proc:
             logger.error('Required data not foung in JSON baseline! (Wrong JSON baseline provided?)')
             sys.exit(-1)
     else:
-        baseline_processes.from_image(image = args.baseline)
+        baseline_processes.from_image(image = args.baseline,
+                                      calculate_imphash = args.imphash)
     if args.savebaseline:
         jsonbaseline = open(args.jsonbaseline, 'w')
         jsonbaseline.write(baseline_processes.to_json())
@@ -435,7 +437,8 @@ if args.proc:
 
     logger.info('Processing image to compare')
     image_to_check_processes = BaselineProcessList()
-    image_to_check_processes.from_image(image = args.image)
+    image_to_check_processes.from_image(image = args.image,
+                                        calculate_imphash = args.imphash)
 
     compare_processes(baseline = baseline_processes,
                       image_to_check = image_to_check_processes,
@@ -490,7 +493,8 @@ if args.svc:
             logger.error('Required data not foung in JSON baseline! (Wrong JSON baseline provided?)')
             sys.exit(-1)
     else:
-        baseline_services.from_image(image = args.baseline)
+        baseline_services.from_image(image = args.baseline,
+                                     calculate_imphash = args.imphash)
 
     if args.savebaseline:
         jsonbaseline = open(args.jsonbaseline, 'w')
@@ -499,7 +503,8 @@ if args.svc:
 
     logger.info('Processing image to compare')
     image_to_check_services = BaselineServiceList()
-    image_to_check_services.from_image(image = args.image)
+    image_to_check_services.from_image(image = args.image,
+                                       calculate_imphash = args.imphash)
 
     compare_services(baseline = baseline_services,
                      image_to_check = image_to_check_services,
@@ -519,7 +524,7 @@ if args.dllstack:
         i = os.path.join(args.imagedir, f)
         if os.path.isfile(i):
             try:
-                print('Processing: (%s)' % (i))
+                logger.info('Processing: (%s)' % (i))
                 processes_list = BaselineProcessList()
                 processes_list.from_image(i)
                 dll_statistics = processes_list.collect_dll_statistics(args.imphash)
@@ -532,7 +537,7 @@ if args.dllstack:
                         if entry['dll'].is_same_as(g_entry['dll'],args.imphash):
                             # if known, add frequency of occurence to the global
                             #   list
-                            print('FOUND: ' + entry['dll'].dll_name)
+                            logger.debug('FOUND: ' + entry['dll'].dll_name)
                             found = True
                             g_entry['frequency_of_occurence'] += entry['frequency_of_occurence']
                             if i not in g_entry['images']:
@@ -540,7 +545,7 @@ if args.dllstack:
                             break
                     if not found:
                         # if unknown add a new entry to the global list
-                        print('NEW: ' + entry['dll'].dll_name)
+                        logger.debug('NEW: ' + entry['dll'].dll_name)
                         global_dll_statistics.append({
                             'dll': entry['dll'],
                             'frequency_of_occurence': entry['frequency_of_occurence'],
@@ -548,7 +553,7 @@ if args.dllstack:
                         })
 
             except Exception as e:
-                print(str(e))
+                logger.warning(str(e))
                 pass
 
     # output results
@@ -610,7 +615,7 @@ if args.procstack:
                         })
 
             except Exception as e:
-                print(str(e))
+                logger.warning(str(e))
                 pass
 
     # output results
@@ -670,7 +675,7 @@ if args.svcstack:
                         })
 
             except Exception as e:
-                print(str(e))
+                logger.warning(str(e))
                 pass
 
     # output results
@@ -732,7 +737,7 @@ if args.drvstack:
                         })
 
             except Exception as e:
-                print(str(e))
+                logger.warning(str(e))
                 pass
 
     # output results

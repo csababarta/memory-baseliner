@@ -5,8 +5,19 @@ import logging
 import pefile
 import uuid
 from urllib import request
+import volatility3
 from volatility3 import framework, plugins
 from volatility3.cli import PrintedProgress
+
+from volatility3.framework.automagic import stacker
+from volatility3.framework import (
+    automagic,
+    constants,
+    contexts,
+    exceptions,
+    interfaces,
+    #plugins,
+)
 
 class BaselineProcess(object):
     """BaselineProcess class
@@ -265,7 +276,8 @@ class BaselineProcess(object):
 
     def from_process(self,
                      process: object,
-                     context: framework.interfaces.context.ContextInterface):
+                     context: framework.interfaces.context.ContextInterface,
+                     calculate_imphash: bool):
         """from_process
 
         This function is responsible for loading the content of a BaselineProcess
@@ -298,6 +310,7 @@ class BaselineProcess(object):
             self.logger.error('Process name could not be determined! (%d)(%s)(%s)' % (self.pid, type(e).__name__, str(e)))
             raise Exception('Process name could not be determined! (%d)(%s)(%s)' % (self.pid, type(e).__name__, str(e)))
 
+        self.logger.debug(f"PID: {self.pid} PPID: {self.ppid} NAME: {self.process_name}")
 
         self.process_cmd_line = self.get_cmd_line(process = process,
                                                   context = context)
@@ -309,23 +322,25 @@ class BaselineProcess(object):
             self.process_owner = ''
 
         self.parent = None
+        self.process_imphash = ''
 
-
-        try:
-            peobj = pefile.PE(data = self.dump_pe(process = process,
-                                                  context = context,
-                                                  process_layer_name = process.add_process_layer()).read())
-            try:
-                self.process_imphash = peobj.get_imphash()
-            except Exception as f:
-                self.logger.warning('Process imphash could not be calculated! (%d)(%s)(%s)' % (self.pid, type(f).__name__, str(f)))
-                self.process_imphash = ''
-        except Exception as e:
-            self.logger.warning('Process PE object could not be created! (%d)(%s)(%s)' % (self.pid, type(e).__name__, str(e)))
-            self.process_imphash = ''
+        if calculate_imphash:
+          try:
+              peobj = pefile.PE(data = self.dump_pe(process = process,
+                                                    context = context,
+                                                    process_layer_name = process.add_process_layer()).read())
+              try:
+                  self.process_imphash = peobj.get_imphash()
+              except Exception as f:
+                  self.logger.warning('Process imphash could not be calculated! (%d)(%s)(%s)' % (self.pid, type(f).__name__, str(f)))
+                  self.process_imphash = ''
+          except Exception as e:
+              self.logger.warning('Process PE object could not be created! (%d)(%s)(%s)' % (self.pid, type(e).__name__, str(e)))
+              self.process_imphash = ''
 
         self.dlls = self.get_dlls(process = process,
-                                  context = context)
+                                  context = context,
+                                  calculate_imphash = calculate_imphash)
         self.children = []
 
     def to_dict(self) -> dict:
@@ -438,7 +453,8 @@ class BaselineProcess(object):
 
     def get_dlls(self,
                  process: object,
-                 context: framework.interfaces.context.ContextInterface) -> list:
+                 context: framework.interfaces.context.ContextInterface,
+                 calculate_imphash: bool) -> list:
         """get_dlls
 
         This function is responsible for extracting the DLLs loaded into the
@@ -474,7 +490,8 @@ class BaselineProcess(object):
                 tmp_dll = BaselineDll()
                 tmp_dll.from_dll(dll_entry = dll,
                                  context = context,
-                                 process_layer_name = process_layer_name)
+                                 process_layer_name = process_layer_name,
+                                 calculate_imphash = calculate_imphash)
                 tmp_dlls.append(tmp_dll)
             except Exception as e:
                 self.logger.warning('Dll skipped! (%d)(%s)(%s)(%s)' % (self.pid, hex(dll.DllBase), type(e).__name__, str(e)))
@@ -690,7 +707,8 @@ class BaselineDll(object):
     def from_dll(self,
                  dll_entry: object,
                  context: framework.interfaces.context.ContextInterface,
-                 process_layer_name: str):
+                 process_layer_name: str,
+                 calculate_imphash: bool):
         """from_dll
 
         This function is responsible for loading the content of a BaselineDLL
@@ -706,7 +724,7 @@ class BaselineDll(object):
 
         # Extract basic DLL info
         self.dll_base = dll_entry.DllBase
-        self.logger.info('Base: %s' % (hex(self.dll_base)))
+        self.logger.debug('Base: %s' % (hex(self.dll_base)))
         self.dll_image_size = dll_entry.SizeOfImage
 
         # Extract DLL name
@@ -722,20 +740,24 @@ class BaselineDll(object):
         except Exception as e:
             self.logger.warning('DLL path cannot be extracted! (%s)(%s)(%s)' % (hex(self.dll_base), type(e).__name__, str(e)))
             raise Exception('DLL path cannot be extracted! (%s)(%s)(%s)' % (hex(self.dll_base), type(e).__name__, str(e)))
+        
+        self.logger.debug(f"\tNAME: {self.dll_name} PATH: {self.dll_path} BASE: {self.dll_base}")
 
         # Calculate imphash
-        try:
-            peobj = pefile.PE(data = self.dump_pe(dll_entry = dll_entry,
-                                                  context = context,
-                                                  process_layer_name = process_layer_name).read())
-            try:
-                self.dll_imphash = peobj.get_imphash()
-            except Exception as f:
-                self.logger.warning('DLL imphash could not be calculated! (%s)(%s)(%s)' % (hex(self.dll_base), type(f).__name__, str(f)))
-                self.dll_imphash = ''
-        except Exception as e:
-            self.logger.warning('DLL PE object could not be created! (%s)(%s)(%s)' % (hex(self.dll_base), type(e).__name__, str(e)))
-            self.dll_imphash = ''
+        self.dll_imphash = ''
+        if calculate_imphash:
+          try:
+              peobj = pefile.PE(data = self.dump_pe(dll_entry = dll_entry,
+                                                    context = context,
+                                                    process_layer_name = process_layer_name).read())
+              try:
+                  self.dll_imphash = peobj.get_imphash()
+              except Exception as f:
+                  self.logger.warning('DLL imphash could not be calculated! (%s)(%s)(%s)' % (hex(self.dll_base), type(f).__name__, str(f)))
+                  self.dll_imphash = ''
+          except Exception as e:
+              self.logger.warning('DLL PE object could not be created! (%s)(%s)(%s)' % (hex(self.dll_base), type(e).__name__, str(e)))
+              self.dll_imphash = ''
 
     def to_dict(self) -> dict:
         """to_dict
@@ -949,7 +971,9 @@ class BaselineProcessList(object):
                 })
         return process_statistics
 
-    def from_image(self, image: str) -> list:
+    def from_image(self,
+                   image: str,
+                   calculate_imphash: bool) -> list:
         """from_image
 
         This function is responsible for extracting processes from the memory
@@ -990,11 +1014,13 @@ class BaselineProcessList(object):
                                                symbol_table = ctx.config['PsList.kernel.symbol_table_name'])
         try:
             for p in processes:
+                self.logger.debug(f"Process {p}")
                 try:
                     # Instantiate process object
                     tmp_process = BaselineProcess()
                     tmp_process.from_process(process = p,
-                                             context = ctx)
+                                             context = ctx,
+                                             calculate_imphash = calculate_imphash)
                     # Add process object to result list
                     self.processes.append(tmp_process)
                 except Exception as e:
@@ -1411,7 +1437,6 @@ class BaselineDriverList(object):
                                            layer_name = ctx.config['Modules.kernel.layer_name'],
                                            symbol_table = ctx.config['Modules.kernel.symbol_table_name'])
         for module in modules:
-            #print(str(module.vol.offset) + "\t" + module.BaseDllName.get_string() + "\t" + module.FullDllName.get_string() + "\t" + str(module.SizeOfImage))
             try:
                 driver = BaselineDriver()
                 driver.from_driver(driver_entry = module,
@@ -1650,7 +1675,7 @@ class BaselineService(object):
 
     @service_process_binary.setter
     def service_process_binary(self,
-                               service_process_binary):
+                               service_process_binary: str):
         """service_process_binary property setter
 
         Sets the internal field __service_process_binary
@@ -1755,7 +1780,7 @@ class BaselineService(object):
         self.service_process_binary = service_entry[5] if isinstance(service_entry[5], str) else ''
         pid = service_entry[6] if isinstance(service_entry[6], int) else -1
         proc = None
-        if pid > -1:
+        if pid > -1 and process_list != None:
             for p in process_list.processes:
                 if p.pid == pid:
                     proc = p
@@ -1942,7 +1967,8 @@ class BaselineServiceList(object):
                 raise e
 
     def from_image(self,
-                   image: str):
+                   image: str,
+                   calculate_imphash: bool):
         """from_image
 
         This function is responsible for extracting services from the memory
@@ -1955,10 +1981,15 @@ class BaselineServiceList(object):
         self.logger.debug('FROM_IMAGE called')
 
         # Get processes
+        processes = None
         processes = BaselineProcessList()
-        processes.from_image(image)
+        processes.from_image(image = image,
+                             calculate_imphash = calculate_imphash)
 
-        failures = framework.import_files(plugins, True)
+        volatility3.framework.require_interface_version(2, 0, 0)
+        volatility3.plugins.__path__ = framework.constants.PLUGINS_PATH
+
+        failures = framework.import_files(volatility3.plugins, True)
         if len(failures) != 0:
             self.logger.warning('Volatility init failures! %s' % (str(failures)))
 
@@ -1966,110 +1997,74 @@ class BaselineServiceList(object):
         ctx = framework.contexts.Context()
         ctx.config['automagic.LayerStacker.single_location'] = "file:" + request.pathname2url(image)
         available_automagics = framework.automagic.available(ctx)
+        plugin_list = framework.list_plugins()
+        seen_automagics = set()
+        configurables_list = {}
+        base_config_path = "plugins"
+        for amagic in available_automagics:
+          if amagic in seen_automagics:
+              continue
+          seen_automagics.add(amagic)
+
+        plugin = plugin_list['windows.svcscan.SvcScan']
+        config_path = framework.interfaces.configuration.path_join(base_config_path, plugin.__class__.__name__)
+
 
         automagics = framework.automagic.choose_automagic(available_automagics,
-                                                          plugins.windows.svcscan.SvcScan)
-        errors = framework.automagic.run(automagics,
-                                         ctx,
-                                         plugins.windows.svcscan.SvcScan,
-                                         config_path,
-                                         progress_callback = PrintedProgress())
-        self.logger.debug('Errors: %s' % (errors))
-        unsatisfied = plugins.windows.svcscan.SvcScan.unsatisfied(ctx, 'SvcScan')
-        self.logger.debug('Unsatisfied: %s' % (unsatisfied))
-
-        service_table_name = self.create_service_table(context = ctx,
-                                                       symbol_table = ctx.config["SvcScan.kernel.symbol_table_name"],
-                                                       config_path = config_path)
-        relative_tag_offset = ctx.symbol_space.get_type(service_table_name + framework.constants.BANG +
-                                                        "_SERVICE_RECORD").relative_child_offset("Tag")
-        filter_func = plugins.windows.pslist.PsList.create_name_filter(["services.exe"])
-        is_vista_or_later = framework.symbols.windows.versions.is_vista_or_later(context = ctx,
-                                                                                 symbol_table = ctx.config["SvcScan.kernel.symbol_table_name"])
-        if is_vista_or_later:
-            service_tag = b"serH"
-        else:
-            service_tag = b"sErv"
+                                                          plugin)
+        
+        if ctx.config.get("automagic.LayerStacker.stackers", None) is None:
+          ctx.config["automagic.LayerStacker.stackers"] = stacker.choose_os_stackers(
+              plugin
+          )
 
         try:
+            
             seen = []
-            for task in plugins.windows.pslist.PsList.list_processes(context = ctx,
-                                                                     layer_name = ctx.config['SvcScan.kernel.layer_name'],
-                                                                     symbol_table = ctx.config['SvcScan.kernel.symbol_table_name'],
-                                                                     filter_func = filter_func):
-                proc_id = "Unknown"
-                try:
-                    proc_id = task.UniqueProcessId
-                    proc_layer_name = task.add_process_layer()
-                except exceptions.InvalidAddressException as excp:
-                    vollog.debug("Process {}: invalid address {} in layer {}".format(proc_id, excp.invalid_address,
-                                                                                     excp.layer_name))
-                    continue
+            services = []
+            constructed = volatility3.framework.plugins.construct_plugin(
+                ctx,
+                automagics,
+                plugin,
+                base_config_path,
+                progress_callback=None,
+                open_method=None,
+            )
 
-                layer = ctx.layers[proc_layer_name]
+            plugin_results = constructed.run()
+            
 
-                for offset in layer.scan(context = ctx,
-                                         scanner = framework.layers.scanners.BytesScanner(needle = service_tag),
-                                         sections = plugins.windows.vadyarascan.VadYaraScan.get_vad_maps(task)):
+            def collector(node: interfaces.renderers.TreeNode, accumulator):
+                svc = []
+                for column_index in range(len(node._treegrid.columns)):
+                    svc.append(node.values[column_index])
+                
+                accumulator.append((
+                    svc[6], # name
+                    svc[7], # display name
+                    svc[5], # type
+                    svc[3], # start
+                    svc[4], # state
+                    svc[8], # binary
+                    svc[2]  # pid
+                ))
+                return accumulator
 
-                    if not is_vista_or_later:
-                        service_record = ctx.object(service_table_name + framework.constants.BANG + "_SERVICE_RECORD",
-                                                    offset = offset - relative_tag_offset,
-                                                    layer_name = proc_layer_name)
+            services = plugin_results.visit(node=None, function=collector, initial_accumulator=services)
 
-                        if not service_record.is_valid():
-                            continue
+            for svc in services:
 
-                        svc_tuple = self.get_record_tuple(service_record)
-                        svc = (svc_tuple[6], # name
-                               svc_tuple[7], # display name
-                               svc_tuple[5], # type
-                               svc_tuple[3], # start
-                               svc_tuple[4], # state
-                               svc_tuple[8], # binary
-                               svc_tuple[2]) # pid
+                if not svc in seen:
+                    self.logger.debug(svc)
+                    seen.append(svc)
+                    service = BaselineService()
+                    service.from_service(service_entry = svc,
+                                          process_list = processes)
 
-                        if not svc in seen:
-                            #print(svc)
-                            seen.append(svc)
-                            service = BaselineService()
-                            service.from_service(service_entry = svc,
-                                                 process_list = processes)
-
-                            self.services.append(service)
-                    else:
-                        service_header = ctx.object(service_table_name + framework.constants.BANG + "_SERVICE_HEADER",
-                                                    offset = offset,
-                                                    layer_name = proc_layer_name)
-
-                        if not service_header.is_valid():
-                            continue
-
-                        # since we walk the s-list backwards, if we've seen
-                        # an object, then we've also seen all objects that
-                        # exist before it, thus we can break at that time.
-                        for service_record in service_header.ServiceRecord.traverse():
-                            svc_tuple = self.get_record_tuple(service_record)
-                            svc = (svc_tuple[6], # name
-                                   svc_tuple[7], # display name
-                                   svc_tuple[5], # type
-                                   svc_tuple[3], # start
-                                   svc_tuple[4], # state
-                                   svc_tuple[8], # binary
-                                   svc_tuple[2]) # pid
-
-                            if not svc in seen:
-                                #print(svc)
-                                seen.append(svc)
-                                service = BaselineService()
-                                service.from_service(service_entry = svc,
-                                                     process_list = processes)
-
-                                self.services.append(service)
-                            else:
-                                break
+                    self.services.append(service)
+                    
         except Exception as e:
-            self.logger.error('Error looping through processes! (%s)' % (str(e)))
+            self.logger.error('Error getting service records! (%s)' % (str(e)))
             pass
 
     def collect_service_statistics(self,
